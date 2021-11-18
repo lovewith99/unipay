@@ -107,9 +107,55 @@ client, err := unipay.NewPlayStoreClient(
 
 
 ## paypal v2
-
+### 初始化
+```golang
+client, _ := unipay.NewPayPalClient(
+		"clientId",
+		"secret",
+		true, // 生产环境: true, 沙盒环境: false
+		unipay.PayPalOrderSvc(Interface<UniPayOrderService>),
+		unipay.PayPalNotifyURL("ReturnURL", "CancelURL"),
+		unipay.PayPalGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo),
+)
+```
 
 ## alipay v3
+### 初始化
+```golang
+// 普通公钥模式: KeyMode
+alipay, _ = unipay.NewAliPayClient(
+		unipay.AliPayEnv(true), // 生产环境:true, 沙盒环境: false
+		unipay.AliPayConfig("appId", "partnerId"),
+		unipay.AliPayPrivateKey(""),
+		unipay.AliPayAliPublicKey(""),
+		unipay.AliPayNotifyURL("NotifyURL"),
+		unipay.AliPayReturnURL("ReturnURL"),
+		unipay.AliPayOrderSvc(Interface<UniPayOrderService>),
+		unipay.AliPayGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo),
+)
+// 证书模式: CertMode 
+alipay, _ = unipay.NewAliPayClient(
+		unipay.AliPayEnv(true), // 生产环境:true, 沙盒环境: false
+		unipay.AliPayMode("CertMode"),
+		unipay.AliPayConfig("appId", "partnerId"),
+		unipay.AliPayCertFile("appCertSn", "rootCertSn", "aliPublicCertSn"),
+		unipay.AliPayNotifyURL("NotifyURL"),
+		unipay.AliPayReturnURL("ReturnURL"),
+		unipay.AliPayOrderSvc(Interface<UniPayOrderService>),
+		unipay.AliPayGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo),
+)
+```
+
 
 
 ## wxpay 
+
+### 初始化
+```golang
+client, _ := unipay.NewWxPayClient(
+	unipay.WxPayOrderSvc(Interface<UniPayOrderService>),
+	unipay.WxPayNotifyURL("NotifyURL"),
+	unipay.WxPayConfig("appId", "mchId", "key"),
+	unipay.WxPayGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo),
+)
+```
