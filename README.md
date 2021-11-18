@@ -62,9 +62,11 @@ type OrderAttachService interface {
 }
 ```
 
-**func(UniPayOrder) *UniPayOrderInfo**
+**将UniPayOrder转换成UniPayOrderInfo**
+> func(UniPayOrder) *UniPayOrderInfo
 ```golang
 // 该方法签名定义了将一个UniPayOrder转换成UniPayOrderInfo的函数
+// 主要用在alipay, wxpay, paypal 支付场景下生成支付链接时获取订单信息
 // 用来描述订单的基本信息
 type UniPayOrderInfo struct {
 	Subject    string // 购买项目
