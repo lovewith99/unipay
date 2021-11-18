@@ -1,4 +1,4 @@
-module github/lovewith99/unipay
+module github.com/lovewith99/unipay
 
 go 1.16
 
