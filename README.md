@@ -65,7 +65,6 @@ type AttachService interface {
 
 ## apple store
 
-### 初始化
 ```golang
 client := uniapple.NewClient(
 	"password",
@@ -74,6 +73,11 @@ client := uniapple.NewClient(
 	uniapple.WithOrderService(IapOrderService{}),
 	uniapple.WithAttachService(OrderAttachService{}),
 ) 
+
+ctx := &unipay.Context{}
+if err := client.Payment(ctx); err != nil {
+	// do something
+}
 ```
 
 
@@ -86,13 +90,24 @@ client, _ := unigoogle.NewClient(
 	unigoogle.WithOrderService(IapOrderService{}),
 	unigoogle.WithAttachService(OrderAttachService{}),
 	unigoogle.PublicKey("xxxxxxx"),
+	// 国内因为网络原因, 无法直接访问访问服务, 可以通过RemoteAndroidPublisherService 
+	// 代理访问google接口; 若不考虑网络因素, 则通过unigoogle.NewAndroidPublisherService
+	// 创建的service访问google接口更方便
 	unigoogle.WithPublisherService(&unigoogle.RemoteAndroidPublisherService{
-		Endpoint: "http://proxy.leminet.cn",
+		Endpoint: "https://proxy.example.com",
 		Apis:     unigoogle.RemoteAndroidPublisherApis,
 		Client:   &http.Client{Timeout: 10 * time.Second},
 	}),
-	// unipay.NewAndroidPublisherService
+	// unigoogle.WithPublisherService(unigoogle.NewAndroidPublisherService(
+	// 	[]byte("service_account_configjson"),
+	// 	&http.Client{Timeout: 20 * time.Second},
+	// ))
 )
+
+ctx := &unipay.Context{}
+if err := client.Payment(ctx); err != nil {
+	// do something
+}
 ```
 
 
@@ -106,6 +121,12 @@ client, _ := unipaypal.NewClient(
 	unipaypal.WithOrderService(OrderService{}),
 	unipaypal.NotifyURL("xxx", "xxx"),
 )
+
+ctx := &unipay.Context{}
+result, err := client.Payment(ctx)
+if err != nil {
+	// do something
+}
 ```
 
 ## alipay v3
@@ -128,6 +149,15 @@ client, _ := unialipay.NewClient(
 	unialipay.NotifyURL("notifyUrl", "returnUrl")
 	unialipay.WithOrderService(Interface<UniPayOrderService>),
 )
+
+
+ctx := &unipay.Context{}
+result, err := client.Payment(ctx)
+// result, err := client.WapPayment(ctx)
+if err != nil {
+	// do something
+}
+
 ```
 
 
@@ -141,4 +171,10 @@ client, _ := uniwxpay.NewClient(
 	uniwxpay.WithOrderService(OrderService{}),
 	uniwxpay.NotifyURL("xxxxx"),
 )
+
+ctx := &unipay.Context{}
+result, err := client.Payment(ctx)
+if err != nil {
+	// do something
+}
 ```
