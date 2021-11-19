@@ -1,11 +1,11 @@
-package unipay
+package alipay
 
 const (
-	AliPay_KeyMode  = "KeyMode"  // 普通公钥模式
-	AliPay_CertMode = "CertMode" // 公钥证书模式
+	KeyMode  = "KeyMode"  // 普通公钥模式
+	CertMode = "CertMode" // 公钥证书模式
 )
 
-type AliPayClientConfig struct {
+type Config struct {
 	IsProd bool
 	Mode   string
 

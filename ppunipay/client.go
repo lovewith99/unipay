@@ -1,66 +1,63 @@
-package unipay
+package ppunipay
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/lovewith99/unipay"
 	paypal "github.com/plutov/paypal/v4"
 )
 
-type PayPalClientOption func(*PayPalClient)
-
-type PayPalClient struct {
-	PayPalClientConfig
+type Client struct {
+	Config
 	client *paypal.Client
 
-	OrderSvc  UniPayOrderService
-	OrderInfo func(UniPayOrder) *UniPayOrderInfo
+	OrderService unipay.OrderService
 }
 
-func PayPalOrderSvc(svc UniPayOrderService) PayPalClientOption {
-	return func(cli *PayPalClient) {
-		cli.OrderSvc = svc
-	}
-}
+type ClientOption func(*Client)
 
-func PayPalNotifyURL(returnURL, cancelURL string) PayPalClientOption {
-	return func(cli *PayPalClient) {
+func NotifyURL(returnURL, cancelURL string) ClientOption {
+	return func(cli *Client) {
 		cli.ReturnURL = returnURL
 		cli.CancelURL = cancelURL
 	}
 }
 
-func PayPalGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo) PayPalClientOption {
-	return func(cli *PayPalClient) {
-		cli.OrderInfo = f
+func WithOrderService(svc unipay.OrderService) ClientOption {
+	return func(cli *Client) {
+		cli.OrderService = svc
 	}
 }
 
-func NewPayPalClient(clientId, secret string, isProd bool, opts ...PayPalClientOption) (*PayPalClient, error) {
-	apiBase := paypal.APIBaseSandBox
-	if isProd {
-		apiBase = paypal.APIBaseLive
-	}
-
+func NewPayPalClient(clientId, secret string, opts ...ClientOption) (*Client, error) {
 	var err error
-	client := &PayPalClient{}
-	client.client, err = paypal.NewClient(clientId, secret, apiBase)
-	if err != nil {
-		return nil, err
-	}
+	client := &Client{}
+	client.clientId = clientId
+	client.secret = secret
 
 	for _, opt := range opts {
 		opt(client)
 	}
 
+	apiBase := paypal.APIBaseSandBox
+	if client.IsProd {
+		apiBase = paypal.APIBaseLive
+	}
+
+	client.client, err = paypal.NewClient(clientId, secret, apiBase)
+	if err != nil {
+		return nil, err
+	}
+
 	return client, nil
 }
 
-func (cli *PayPalClient) Client() *paypal.Client {
+func (cli *Client) Client() *paypal.Client {
 	return cli.client
 }
 
-func (cli *PayPalClient) GetAccessToken() (*paypal.TokenResponse, error) {
+func (cli *Client) GetAccessToken() (*paypal.TokenResponse, error) {
 	c := cli.client
 
 	if c.Token != nil {
@@ -73,8 +70,9 @@ func (cli *PayPalClient) GetAccessToken() (*paypal.TokenResponse, error) {
 	return c.GetAccessToken(context.Background())
 }
 
-func (cli *PayPalClient) CreateOrder(ctx *Context, order UniPayOrder) (*paypal.Order, error) {
-	info := cli.OrderInfo(order)
+func (cli *Client) CreateOrder(ctx *unipay.Context, order unipay.IOrder) (*paypal.Order, error) {
+	// info := cli.OrderInfo(order)
+	info := order.OrderInfo()
 	amount := fmt.Sprintf("%.2f", float64(info.TotalFee)/100)
 
 	c := cli.client
@@ -113,9 +111,9 @@ func (cli *PayPalClient) CreateOrder(ctx *Context, order UniPayOrder) (*paypal.O
 	return c.CreateOrder(context.Background(), "CAPTURE", purchaseUnits, payer, appCtx)
 }
 
-func (cli *PayPalClient) Payment(ctx *Context) (MapResult, error) {
+func (cli *Client) Payment(ctx *unipay.Context) (unipay.MapResult, error) {
 	// paypal.PaymentPayer
-	svc := cli.OrderSvc
+	svc := cli.OrderService
 
 	order, err := svc.PostOrder(ctx)
 	if err != nil {
@@ -137,7 +135,7 @@ func (cli *PayPalClient) Payment(ctx *Context) (MapResult, error) {
 		return nil, fmt.Errorf("paypal checkout order status: %s", pporder.Status)
 	}
 
-	result := MapResult{
+	result := unipay.MapResult{
 		"id":          pporder.ID,
 		"status":      pporder.Status,
 		"links":       pporder.Links,
@@ -154,7 +152,7 @@ func (cli *PayPalClient) Payment(ctx *Context) (MapResult, error) {
 	return result, nil
 }
 
-func (cli *PayPalClient) CapturePaymentOrder(orderId string) (*paypal.CaptureOrderResponse, error) {
+func (cli *Client) CapturePaymentOrder(orderId string) (*paypal.CaptureOrderResponse, error) {
 	_, err := cli.GetAccessToken()
 	if err != nil {
 		return nil, err

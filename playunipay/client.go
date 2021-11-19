@@ -1,4 +1,4 @@
-package unipay
+package playunipay
 
 import (
 	"context"
@@ -7,67 +7,69 @@ import (
 	"strings"
 
 	"github.com/awa/go-iap/playstore"
+	"github.com/lovewith99/unipay"
+	"github.com/lovewith99/unipay/iap"
 	"google.golang.org/api/androidpublisher/v3"
 )
 
-type PlayStoreClientOption func(*PlayStoreClient) error
+type ClientOption func(*Client) error
 
-type PlayStoreClient struct {
-	PlayStoreClientConfig
+type Client struct {
+	Config
 
-	Locker    OrderLocker
-	OrderSvc  IapOrderService
-	AttachSvc OrderAttachService
-	AndPubSvc AndroidPublisherService
+	Locker          unipay.Locker
+	OrderService    unipay.IapOrderService
+	AttachService   unipay.AttachService
+	PubliserService PublisherService
 }
 
-func PlayStorePackageName(packageName string) PlayStoreClientOption {
-	return func(cli *PlayStoreClient) error {
+func PackageName(packageName string) ClientOption {
+	return func(cli *Client) error {
 		cli.PackageName = packageName
 		return nil
 	}
 }
 
-func PlayStorePublicKey(publicKey string) PlayStoreClientOption {
-	return func(cli *PlayStoreClient) error {
+func PublicKey(publicKey string) ClientOption {
+	return func(cli *Client) error {
 		cli.publicKey = publicKey
 		return nil
 	}
 }
 
-func PlayStoreOrderLocker(locker OrderLocker) PlayStoreClientOption {
-	return func(cli *PlayStoreClient) (err error) {
+func WithLocker(locker unipay.Locker) ClientOption {
+	return func(cli *Client) (err error) {
 		cli.Locker = locker
 		return
 	}
 }
 
-func PlayStoreAttachSvc(svc OrderAttachService) PlayStoreClientOption {
-	return func(cli *PlayStoreClient) (err error) {
-		cli.AttachSvc = svc
+func WithAttachService(svc unipay.AttachService) ClientOption {
+	return func(cli *Client) (err error) {
+		cli.AttachService = svc
 		return
 	}
 }
 
-func PlayStoreOrderSvc(svc IapOrderService) PlayStoreClientOption {
-	return func(cli *PlayStoreClient) (err error) {
-		cli.OrderSvc = svc
+func WithOrderService(svc unipay.IapOrderService) ClientOption {
+	return func(cli *Client) (err error) {
+		cli.OrderService = svc
 		return
 	}
 }
 
-func PlayStoreAndroidPublisherSvc(svc AndroidPublisherService) PlayStoreClientOption {
-	return func(cli *PlayStoreClient) (err error) {
+func WithPublisherService(svc PublisherService) ClientOption {
+	return func(cli *Client) (err error) {
 		if svc == nil {
-			err = errors.New("AndroidPublisherService is nil")
+			err = errors.New("PublisherService is nil")
 		} else {
-			cli.AndPubSvc = svc
+			cli.PubliserService = svc
 		}
 		return
 	}
 }
 
-func (cli *PlayStoreClient) VerifyPurchaseDataSign(purchaseData []byte, sign string) error {
+func (cli *Client) VerifyPurchaseDataSign(purchaseData []byte, sign string) error {
 	ok, err := playstore.VerifySignature(cli.publicKey, purchaseData, sign)
 	if err != nil {
 		return err
@@ -80,7 +82,7 @@ func (cli *PlayStoreClient) VerifyPurchaseDataSign(purchaseData []byte, sign str
 	return nil
 }
 
-func (cli *PlayStoreClient) IapPayment(ctx *Context) error {
+func (cli *Client) Payment(ctx *unipay.Context) error {
 	// step1: 验证签名
 	purchaseData := []byte(ctx.PurchaseData)
 	err := cli.VerifyPurchaseDataSign(purchaseData, ctx.PurchaseDataSign)
@@ -89,7 +91,7 @@ func (cli *PlayStoreClient) IapPayment(ctx *Context) error {
 	}
 
 	// todo: 向google play store服务器发送订单状态查询, 确认订单已支付
-	var inapp InAppPurchaseData
+	var inapp iap.PurchaseData
 	err = json.Unmarshal(purchaseData, &inapp)
 	if err != nil {
 		return err
@@ -102,7 +104,7 @@ func (cli *PlayStoreClient) IapPayment(ctx *Context) error {
 	return cli.Invoke(ctx, &inapp)
 }
 
-func (cli *PlayStoreClient) SetOriOrderId(inapp *InAppPurchaseData) error {
+func (cli *Client) SetOriOrderId(inapp *iap.PurchaseData) error {
 	if inapp.OriOrderId != "" {
 		return nil
 	}
@@ -119,12 +121,12 @@ func (cli *PlayStoreClient) SetOriOrderId(inapp *InAppPurchaseData) error {
 	return nil
 }
 
-func (cli *PlayStoreClient) SetSubscriptionPurchase(inapp *InAppPurchaseData) error {
+func (cli *Client) SetSubscriptionPurchase(inapp *iap.PurchaseData) error {
 	if inapp.SubscriptionPurchase != nil {
 		return nil
 	}
 
-	svc := cli.AndPubSvc
+	svc := cli.PubliserService
 	data, err := svc.VerifySubscription(
 		context.Background(),
 		cli.PackageName,
@@ -139,20 +141,20 @@ func (cli *PlayStoreClient) SetSubscriptionPurchase(inapp *InAppPurchaseData) er
 	return nil
 }
 
-func (cli *PlayStoreClient) Revoke(ctx *Context, inapp *InAppPurchaseData) error {
+func (cli *Client) Revoke(ctx *unipay.Context, inapp *iap.PurchaseData) error {
 	if inapp == nil {
 		return errors.New("Transaction not found")
 	}
 	ctx.ProductID = inapp.ProductId
 	cli.SetOriOrderId(inapp)
 
-	if ok, _ := cli.LockTransaction(inapp.OrderId); !ok {
+	if ok, _ := cli.LockOrder(inapp.OrderId); !ok {
 		return errors.New("concurrenty deal: " + inapp.OrderId)
 	}
-	defer cli.UnLockTransaction(inapp.OrderId)
+	defer cli.UnLockOrder(inapp.OrderId)
 
-	svc := cli.OrderSvc
-	order, err := svc.GetOrderByTradeNo(inapp.OrderId, PayWay_PlayStore)
+	svc := cli.OrderService
+	order, err := svc.GetOrderByTradeNo(inapp.OrderId, unipay.PayWay_PlayStore)
 	if err == nil {
 		err = svc.Revoke(order)
 	}
@@ -160,24 +162,24 @@ func (cli *PlayStoreClient) Revoke(ctx *Context, inapp *InAppPurchaseData) error
 	return err
 }
 
-func (cli *PlayStoreClient) Invoke(ctx *Context, inapp *InAppPurchaseData) error {
+func (cli *Client) Invoke(ctx *unipay.Context, inapp *iap.PurchaseData) error {
 	if inapp == nil {
 		return errors.New("Transaction not found")
 	}
 	ctx.ProductID = inapp.ProductId
 	cli.SetOriOrderId(inapp)
 
-	if ok, _ := cli.LockTransaction(inapp.OrderId); !ok {
+	if ok, _ := cli.LockOrder(inapp.OrderId); !ok {
 		return errors.New("concurrenty deal: " + inapp.OrderId)
 	}
-	defer cli.UnLockTransaction(inapp.OrderId)
+	defer cli.UnLockOrder(inapp.OrderId)
 
-	svc := cli.OrderSvc
-	order, err := svc.GetOrderByTradeNo(inapp.OrderId, PayWay_PlayStore)
+	svc := cli.OrderService
+	order, err := svc.GetOrderByTradeNo(inapp.OrderId, unipay.PayWay_PlayStore)
 	if err != nil {
 		err = cli.CheckSubUser(ctx, inapp)
 		if err == nil {
-			ctx.SetInApp(inapp)
+			ctx.InApp = inapp
 			order, err = svc.PostOrder(ctx)
 		}
 	}
@@ -191,10 +193,10 @@ func (cli *PlayStoreClient) Invoke(ctx *Context, inapp *InAppPurchaseData) error
 		return nil
 	}
 
-	return svc.PayCB(order)
+	return svc.Invoke(order)
 }
 
-func (cli *PlayStoreClient) CheckSubUser(ctx *Context, inapp *InAppPurchaseData) error {
+func (cli *Client) CheckSubUser(ctx *unipay.Context, inapp *iap.PurchaseData) error {
 	// if !inapp.AutoRenewing {
 	// 	return nil
 	// }
@@ -210,7 +212,7 @@ func (cli *PlayStoreClient) CheckSubUser(ctx *Context, inapp *InAppPurchaseData)
 	// 后续订单 ID 是 GPA.1234-5678-9012-34567..0（第一次续订）、
 	// GPA.1234-5678-9012-34567..1（第二次续订），依此类推。
 
-	svc := cli.OrderSvc
+	svc := cli.OrderService
 	matched := svc.CheckSubUser(ctx, inapp.OriOrderId, inapp.OrderId)
 	if !matched {
 		return errors.New("subscribe user mismatch")
@@ -218,7 +220,7 @@ func (cli *PlayStoreClient) CheckSubUser(ctx *Context, inapp *InAppPurchaseData)
 	return nil
 }
 
-func (cli *PlayStoreClient) LockTransaction(transactionId string) (bool, error) {
+func (cli *Client) LockOrder(transactionId string) (bool, error) {
 	locker := cli.Locker
 	if locker != nil {
 		return locker.Lock(transactionId)
@@ -227,7 +229,7 @@ func (cli *PlayStoreClient) LockTransaction(transactionId string) (bool, error) 
 	return true, nil
 }
 
-func (cli *PlayStoreClient) UnLockTransaction(transactionId string) error {
+func (cli *Client) UnLockOrder(transactionId string) error {
 	locker := cli.Locker
 	if locker != nil {
 		return locker.UnLock(transactionId)
@@ -235,7 +237,7 @@ func (cli *PlayStoreClient) UnLockTransaction(transactionId string) error {
 	return nil
 }
 
-func (cli *PlayStoreClient) PlayStoreNotify(ctx *Context, noti *RTDNotification, filters ...func(*DeveloperNotification) bool) error {
+func (cli *Client) PlayStoreNotify(ctx *unipay.Context, noti *RTDNotification, filters ...func(*DeveloperNotification) bool) error {
 	dn, err := noti.GetDeveloperNotification()
 	if err != nil {
 		return err
@@ -259,7 +261,7 @@ func (cli *PlayStoreClient) PlayStoreNotify(ctx *Context, noti *RTDNotification,
 	return nil
 }
 
-func (cli *PlayStoreClient) OneTimeProductNotify(ctx *Context, noti *OneTimeProductNotification) error {
+func (cli *Client) OneTimeProductNotify(ctx *unipay.Context, noti *OneTimeProductNotification) error {
 	// switch noti.NotificationType {
 	// case ONE_TIME_PRODUCT_PURCHASED:
 	// case ONE_TIME_PRODUCT_CANCELED:
@@ -268,7 +270,7 @@ func (cli *PlayStoreClient) OneTimeProductNotify(ctx *Context, noti *OneTimeProd
 		return nil
 	}
 
-	svc := cli.AndPubSvc
+	svc := cli.PubliserService
 	data, err := svc.VerifyProduct(context.Background(),
 		cli.PackageName, noti.Sku, noti.PurchaseToken)
 	if err != nil {
@@ -277,7 +279,7 @@ func (cli *PlayStoreClient) OneTimeProductNotify(ctx *Context, noti *OneTimeProd
 
 	if data.PurchaseState == 0 && data.AcknowledgementState == 0 {
 		// 已购买
-		purchaseData := InAppPurchaseData{
+		purchaseData := iap.PurchaseData{
 			AutoRenewing:     false,
 			PackageName:      cli.PackageName,
 			OrderId:          data.OrderId,
@@ -299,8 +301,8 @@ func (cli *PlayStoreClient) OneTimeProductNotify(ctx *Context, noti *OneTimeProd
 	return err
 }
 
-func (cli *PlayStoreClient) SubscriptionNotify(ctx *Context, noti *SubscriptionNotification) error {
-	svc := cli.AndPubSvc
+func (cli *Client) SubscriptionNotify(ctx *unipay.Context, noti *SubscriptionNotification) error {
+	svc := cli.PubliserService
 	data, err := svc.VerifySubscription(
 		context.Background(),
 		cli.PackageName,
@@ -311,7 +313,7 @@ func (cli *PlayStoreClient) SubscriptionNotify(ctx *Context, noti *SubscriptionN
 		return err
 	}
 
-	purchaseData := InAppPurchaseData{
+	purchaseData := iap.PurchaseData{
 		AutoRenewing:         data.AutoRenewing,
 		PackageName:          cli.PackageName,
 		OrderId:              data.OrderId,
@@ -362,29 +364,9 @@ func (cli *PlayStoreClient) SubscriptionNotify(ctx *Context, noti *SubscriptionN
 	return err
 }
 
-// doc: https://developer.android.com/google/play/billing/billing_reference
-type InAppPurchaseData struct {
-	// 表明是否自动续订订阅。如果为 true，则表示订阅处于活动状态，并将在下一个结算日期自动续订。
-	// 如果为 false，则表示用户已取消订阅。用户可以在下一个结算日期之前访问订阅内容，并且在该日期后将无法访问，
-	// 除非他们重新启用自动续订（或者手动续订，如手动续订中所述）。如果您提供宽限期，只要宽限期尚未结束，
-	// 对于所有订阅而言，此值都将保持为 true。下一次结算日期每天都会自动推延，直至宽限期结束或用户更改他们的付款方式。
-	AutoRenewing bool `json:"autoRenewing"`
-
-	OrderId          string `json:"orderId"`          // 交易的唯一订单标识符。
-	PackageName      string `json:"packageName"`      // 发起购买的应用软件包。
-	ProductId        string `json:"productId"`        // 商品的产品标识符。
-	PurchaseTime     int64  `json:"purchaseTime"`     // 购买产品的时间，单位毫秒。
-	PurchaseState    int    `json:"purchaseState"`    // 订单的购买状态。始终返回 0（已购买）。
-	DeveloperPayload string `json:"developerPayload"` // 开发者指定的字符串，其中包含关于订单的补充信息。
-	PurchaseToken    string `json:"purchaseToken"`    // 用于对给定商品和用户对的购买交易进行唯一标识的令牌
-
-	OriOrderId           string                                 `json:"-"` // 连续订阅的第一笔订阅id
-	SubscriptionPurchase *androidpublisher.SubscriptionPurchase `json:"-"`
-}
-
-func NewPlayStoreClient(opts ...PlayStoreClientOption) (*PlayStoreClient, error) {
+func NewPlayStoreClient(opts ...ClientOption) (*Client, error) {
 	var err error
-	client := &PlayStoreClient{}
+	client := &Client{}
 	for _, opt := range opts {
 		err = opt(client)
 		if err != nil {

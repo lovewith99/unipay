@@ -1,4 +1,4 @@
-package unipay
+package playunipay
 
 import (
 	"encoding/base64"
@@ -64,7 +64,7 @@ func PlayStoreNotifyType(v int) string {
 	return ""
 }
 
-type AndroidPublisherService interface {
+type PublisherService interface {
 	playstore.IABProduct
 	playstore.IABSubscription
 }

@@ -3,22 +3,23 @@
 ## 介绍
 unipay 抽象了服务端处理app内支付的过程和逻辑, 将具体的业务处理操作抽象成下面几个接口。
 
-**UniPayOrder**
+**IOrder**
 ```golang
 // 描述app内订单的接口
-type UniPayOrder interface {
+type IOrder interface {
 	Payed() bool // 订单是否已支付
+	OrderInfo() *OrderInfo // 获取订单的基本信息
 }
 ```
 
-**UniPayOrderService**
+**OrderService**
 ```golang
 // 一个通用的订单处理接口
-type UniPayOrderService interface {
-	// PayCB 支付回调处理
-	PayCB(order UniPayOrder) error
+type OrderService interface {
+	// Invoke 订单处理逻辑
+	Invoke(order UniPayOrder) error
 
-	// Revoke 撤销订单, 执行与PayCB相反的逻辑
+	// Revoke 撤销订单, 执行与Invoke相反的逻辑
 	Revoke(order UniPayOrder) error
 
 	// PostOrder 创建订单
@@ -40,41 +41,25 @@ type IapOrderService interface {
 }
 ```
 
-**OrderLocker**
+**Locker**
 ``` golang
 // 该接口并不是一个必须要实现的接口
 // OrderLocker 订单锁, 防止并发处理同一笔订单导致而导致订单重复处理
-type OrderLocker interface {
+type Locker interface {
 	Lock(orderId string) (bool, error)
 	UnLock(orderId string) error
 }
 ```
 
-**OrderAttachService**
+**AttachService**
 ```golang
 // 该接口并不是一个必须要实现的接口
-// OrderAttachSvc 保存/删除订单的附件信息
+// AttachSvc 保存/删除订单的附件信息
 // 主要应用于apple iap 和 google iap场景下补单时, 订单的attach信息丢失
 // 避免小票验证失败之后, 再次发起验证时, 订单的附件信息丢失, 无法正确处理回调
-type OrderAttachService interface {
+type AttachService interface {
 	Create(orderId, attach string) error
 	Delete(orderId string) error
-}
-```
-
-**将UniPayOrder转换成UniPayOrderInfo**
-> func(UniPayOrder) *UniPayOrderInfo
-```golang
-// 该方法签名定义了将一个UniPayOrder转换成UniPayOrderInfo的函数
-// 主要用在alipay, wxpay, paypal 支付场景下生成支付链接时获取订单信息
-// 用来描述订单的基本信息
-type UniPayOrderInfo struct {
-	Subject    string // 购买项目
-	TotalFee   int    // 订单金额x100
-	OutTradeNo string // 应用内交易流水号
-	TradeNo    string // 第三方支付流水号
-	Attach     string // 透传参数
-	Currency   string // 货币单位, "CNY" | "USD"
 }
 ```
 

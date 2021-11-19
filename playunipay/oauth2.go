@@ -1,4 +1,4 @@
-package unipay
+package playunipay
 
 import (
 	"context"

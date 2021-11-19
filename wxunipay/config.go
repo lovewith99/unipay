@@ -1,6 +1,6 @@
-package unipay
+package wxunipay
 
-type WxPayClientConfig struct {
+type Config struct {
 	appId    string
 	mchId    string
 	key      string

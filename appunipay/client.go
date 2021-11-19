@@ -1,4 +1,4 @@
-package unipay
+package appunipay
 
 import (
 	"context"
@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/awa/go-iap/appstore"
+	"github.com/lovewith99/unipay"
 )
 
-type AppStoreClientOption func(*AppStoreClient)
+type ClientOption func(*Client)
 
-func NewAppStoreClient(password, bundleId string, opts ...AppStoreClientOption) *AppStoreClient {
-	cli := &AppStoreClient{}
+func NewClient(password, bundleId string, opts ...ClientOption) *Client {
+	cli := &Client{}
 	cli.password = password
 	cli.bundleID = bundleId
 
@@ -26,11 +27,11 @@ func NewAppStoreClient(password, bundleId string, opts ...AppStoreClientOption) 
 	}
 
 	if cli.Locker == nil {
-		cli.Locker = EmptyOrderLocker{}
+		cli.Locker = unipay.LockerImpl{}
 	}
 
-	if cli.AttachSvc == nil {
-		cli.AttachSvc = EmptyOrderAttachService{}
+	if cli.AttachService == nil {
+		cli.AttachService = unipay.AttachServiceImpl{}
 	}
 
 	cli.client = appstore.NewWithClient(&http.Client{
@@ -39,42 +40,44 @@ func NewAppStoreClient(password, bundleId string, opts ...AppStoreClientOption) 
 	return cli
 }
 
-func AppStoreOrderLocker(locker OrderLocker) AppStoreClientOption {
-	return func(cli *AppStoreClient) {
+func HttpTimeout(v time.Duration) ClientOption {
+	return func(cli *Client) {
+		cli.HttpTimeout = v
+	}
+}
+
+func WithLocker(locker unipay.Locker) ClientOption {
+	return func(cli *Client) {
 		cli.Locker = locker
 	}
 }
 
-func AppStoreAttachSvc(svc OrderAttachService) AppStoreClientOption {
-	return func(cli *AppStoreClient) {
-		cli.AttachSvc = svc
+func WithAttachService(svc unipay.AttachService) ClientOption {
+	return func(cli *Client) {
+		cli.AttachService = svc
 	}
 }
 
-func AppStoreOrderSvc(svc IapOrderService) AppStoreClientOption {
-	return func(cli *AppStoreClient) {
-		cli.OrderSvc = svc
+func WithOrderService(svc unipay.IapOrderService) ClientOption {
+	return func(cli *Client) {
+		cli.OrderService = svc
 	}
 }
 
-type AppStoreClient struct {
-	AppStoreClientConfig
+type Client struct {
+	Config
 	client *appstore.Client
 
-	Locker OrderLocker
-
-	// 用来保存苹果订单的附件信息，
-	// 避免补单时信息丢失
-	AttachSvc OrderAttachService
-
-	OrderSvc IapOrderService
+	Locker        unipay.Locker
+	OrderService  unipay.IapOrderService
+	AttachService unipay.AttachService
 }
 
-func (cli *AppStoreClient) Client() *appstore.Client {
+func (cli *Client) Client() *appstore.Client {
 	return cli.client
 }
 
-func (cli *AppStoreClient) VerifyReciept(req *appstore.IAPRequest, retry uint) (*appstore.IAPResponse, error) {
+func (cli *Client) VerifyReciept(req *appstore.IAPRequest, retry uint) (*appstore.IAPResponse, error) {
 	var err error
 	resp := &appstore.IAPResponse{}
 
@@ -94,7 +97,7 @@ func (cli *AppStoreClient) VerifyReciept(req *appstore.IAPRequest, retry uint) (
 	return resp, err
 }
 
-func (cli *AppStoreClient) GetTransaction(resp *appstore.IAPResponse, transactionId string) *appstore.InApp {
+func (cli *Client) GetInapp(resp *appstore.IAPResponse, transactionId string) *appstore.InApp {
 	var transaction *appstore.InApp
 	for i := range resp.LatestReceiptInfo {
 		if resp.LatestReceiptInfo[i].TransactionID == transactionId {
@@ -115,8 +118,8 @@ func (cli *AppStoreClient) GetTransaction(resp *appstore.IAPResponse, transactio
 	return transaction
 }
 
-func (cli *AppStoreClient) CreateTrasactionAttach(transactionId, attach string) error {
-	svc := cli.AttachSvc
+func (cli *Client) CreateInappAttach(transactionId, attach string) error {
+	svc := cli.AttachService
 	if svc == nil {
 		return nil
 	}
@@ -128,8 +131,8 @@ func (cli *AppStoreClient) CreateTrasactionAttach(transactionId, attach string) 
 	return nil
 }
 
-func (cli *AppStoreClient) DeleteTrasactionAttach(transactionId string) error {
-	svc := cli.AttachSvc
+func (cli *Client) DeleteInappAttach(transactionId string) error {
+	svc := cli.AttachService
 	if svc != nil {
 		return svc.Delete(transactionId)
 	}
@@ -137,7 +140,7 @@ func (cli *AppStoreClient) DeleteTrasactionAttach(transactionId string) error {
 	return nil
 }
 
-func (cli *AppStoreClient) LockTransaction(transactionId string) (bool, error) {
+func (cli *Client) LockInapp(transactionId string) (bool, error) {
 	locker := cli.Locker
 	if locker != nil {
 		return locker.Lock(transactionId)
@@ -146,7 +149,7 @@ func (cli *AppStoreClient) LockTransaction(transactionId string) (bool, error) {
 	return true, nil
 }
 
-func (cli *AppStoreClient) UnLockTransaction(transactionId string) error {
+func (cli *Client) UnLockInapp(transactionId string) error {
 	locker := cli.Locker
 	if locker != nil {
 		return locker.UnLock(transactionId)
@@ -154,8 +157,8 @@ func (cli *AppStoreClient) UnLockTransaction(transactionId string) error {
 	return nil
 }
 
-func (cli *AppStoreClient) IapPayment(ctx *Context) error {
-	cli.CreateTrasactionAttach(ctx.TransactionId, ctx.Attach)
+func (cli *Client) Payment(ctx *unipay.Context) error {
+	cli.CreateInappAttach(ctx.TransactionId, ctx.Attach)
 
 	ctx.IAPRequest.Password = cli.password
 	resp, err := cli.VerifyReciept(&ctx.IAPRequest, 3)
@@ -167,51 +170,31 @@ func (cli *AppStoreClient) IapPayment(ctx *Context) error {
 		return errors.New("bundle id mismath")
 	}
 
-	inapp := cli.GetTransaction(resp, ctx.TransactionId)
+	inapp := cli.GetInapp(resp, ctx.TransactionId)
 
 	// 小票验证完成，开始处理订单交易
 	return cli.Invoke(ctx, inapp)
 }
 
-func (cli *AppStoreClient) Revoke(ctx *Context, inapp *appstore.InApp) error {
-	if inapp == nil {
-		return errors.New("Transaction not found")
-	}
-	ctx.ProductID = inapp.ProductID
-	if ok, _ := cli.LockTransaction(inapp.TransactionID); !ok {
-		// 并发处理同一笔订单, 未获得锁
-		return errors.New("concurrenty deal: " + inapp.TransactionID)
-	}
-	defer cli.UnLockTransaction(inapp.TransactionID)
-
-	svc := cli.OrderSvc
-	order, err := svc.GetOrderByTradeNo(inapp.TransactionID, PayWay_AppStore)
-	if err == nil {
-		err = svc.Revoke(order)
-	}
-
-	return err
-}
-
 // InvokeHandler 处理小票交易
-func (cli *AppStoreClient) Invoke(ctx *Context, inapp *appstore.InApp) error {
+func (cli *Client) Invoke(ctx *unipay.Context, inapp *appstore.InApp) error {
 	if inapp == nil {
 		return errors.New("transaction not found")
 	}
 	ctx.ProductID = inapp.ProductID
 
-	if ok, _ := cli.LockTransaction(inapp.TransactionID); !ok {
+	if ok, _ := cli.LockInapp(inapp.TransactionID); !ok {
 		// 并发处理同一笔订单, 未获得锁
 		return errors.New("concurrenty deal: " + inapp.TransactionID)
 	}
-	defer cli.UnLockTransaction(inapp.TransactionID)
+	defer cli.UnLockInapp(inapp.TransactionID)
 
-	svc := cli.OrderSvc
-	order, err := svc.GetOrderByTradeNo(inapp.TransactionID, PayWay_AppStore)
+	svc := cli.OrderService
+	order, err := svc.GetOrderByTradeNo(inapp.TransactionID, unipay.PayWay_AppStore)
 	if err != nil {
 		err = cli.CheckSubUser(ctx, inapp)
 		if err == nil {
-			ctx.SetInApp(inapp)
+			ctx.InApp = inapp
 			order, err = svc.PostOrder(ctx)
 		}
 	}
@@ -225,10 +208,30 @@ func (cli *AppStoreClient) Invoke(ctx *Context, inapp *appstore.InApp) error {
 		return nil
 	}
 
-	return svc.PayCB(order)
+	return svc.Invoke(order)
 }
 
-func (cli *AppStoreClient) CheckSubUser(ctx *Context, inapp *appstore.InApp) error {
+func (cli *Client) Revoke(ctx *unipay.Context, inapp *appstore.InApp) error {
+	if inapp == nil {
+		return errors.New("Transaction not found")
+	}
+	ctx.ProductID = inapp.ProductID
+	if ok, _ := cli.LockInapp(inapp.TransactionID); !ok {
+		// 并发处理同一笔订单, 未获得锁
+		return errors.New("concurrenty deal: " + inapp.TransactionID)
+	}
+	defer cli.UnLockInapp(inapp.TransactionID)
+
+	svc := cli.OrderService
+	order, err := svc.GetOrderByTradeNo(inapp.TransactionID, unipay.PayWay_AppStore)
+	if err == nil {
+		err = svc.Revoke(order)
+	}
+
+	return err
+}
+
+func (cli *Client) CheckSubUser(ctx *unipay.Context, inapp *appstore.InApp) error {
 	if inapp.OriginalTransactionID == "" {
 		return nil
 	}
@@ -237,7 +240,7 @@ func (cli *AppStoreClient) CheckSubUser(ctx *Context, inapp *appstore.InApp) err
 		return nil
 	}
 
-	svc := cli.OrderSvc
+	svc := cli.OrderService
 	matched := svc.CheckSubUser(ctx, inapp.OriginalTransactionID, inapp.TransactionID)
 	if !matched {
 		return errors.New("subscribe user mismatch")
@@ -245,8 +248,8 @@ func (cli *AppStoreClient) CheckSubUser(ctx *Context, inapp *appstore.InApp) err
 	return nil
 }
 
-func (cli *AppStoreClient) AppStoreNotify(ctx *Context, noti *appstore.SubscriptionNotification, filters ...func(*appstore.InApp) bool) error {
-	inapp := GetLatestTranscation(noti.UnifiedReceipt.LatestReceiptInfo)
+func (cli *Client) AppStoreNotify(ctx *unipay.Context, noti *appstore.SubscriptionNotification, filters ...func(*appstore.InApp) bool) error {
+	inapp := GetLatestInapp(noti.UnifiedReceipt.LatestReceiptInfo)
 
 	for _, filter := range filters {
 		if ok := filter(inapp); !ok {
@@ -275,7 +278,7 @@ func (cli *AppStoreClient) AppStoreNotify(ctx *Context, noti *appstore.Subscript
 	return nil
 }
 
-func GetLatestTranscation(inapps []appstore.InApp) *appstore.InApp {
+func GetLatestInapp(inapps []appstore.InApp) *appstore.InApp {
 	var ts int64
 	var inapp *appstore.InApp
 	for i := range inapps {

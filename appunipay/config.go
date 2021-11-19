@@ -1,10 +1,10 @@
-package unipay
+package appunipay
 
 import (
 	"time"
 )
 
-type AppStoreClientConfig struct {
+type Config struct {
 	bundleID string
 	password string
 

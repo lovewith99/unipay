@@ -1,25 +1,25 @@
-package unipay
+package alipay
 
 import (
 	"fmt"
 
+	"github.com/lovewith99/unipay"
 	alipayv3 "github.com/smartwalle/alipay/v3"
 )
 
-type AliPayClient struct {
-	AliPayClientConfig
+type Client struct {
+	Config
 
-	client    *alipayv3.Client
-	OrderSvc  UniPayOrderService
-	OrderInfo func(UniPayOrder) *UniPayOrderInfo
+	client       *alipayv3.Client
+	OrderService unipay.OrderService
 }
 
-func (cli *AliPayClient) Client() *alipayv3.Client {
+func (cli *Client) Client() *alipayv3.Client {
 	return cli.client
 }
 
-func (cli *AliPayClient) AppPayment(ctx *Context) (MapResult, error) {
-	svc := cli.OrderSvc
+func (cli *Client) Payment(ctx *unipay.Context) (unipay.MapResult, error) {
+	svc := cli.OrderService
 
 	// order, err := svc.PostOrder(ctx)
 	order, err := svc.PostOrder(ctx)
@@ -31,7 +31,7 @@ func (cli *AliPayClient) AppPayment(ctx *Context) (MapResult, error) {
 	obj.ProductCode = "QUICK_MSECURITY_PAY"
 	obj.NotifyURL = cli.NotifyURL
 
-	info := cli.OrderInfo(order)
+	info := order.OrderInfo()
 	obj.Subject = info.Subject
 	obj.OutTradeNo = info.OutTradeNo
 	obj.TotalAmount = fmt.Sprintf("%.2f", float64(info.TotalFee)/100)
@@ -46,8 +46,8 @@ func (cli *AliPayClient) AppPayment(ctx *Context) (MapResult, error) {
 	}, nil
 }
 
-func (cli *AliPayClient) WapPayment(ctx *Context) (MapResult, error) {
-	svc := cli.OrderSvc
+func (cli *Client) WapPayment(ctx *unipay.Context) (unipay.MapResult, error) {
+	svc := cli.OrderService
 
 	order, err := svc.PostOrder(ctx)
 	if err != nil {
@@ -59,7 +59,7 @@ func (cli *AliPayClient) WapPayment(ctx *Context) (MapResult, error) {
 	obj.ReturnURL = cli.ReturnURL
 	obj.NotifyURL = cli.NotifyURL
 
-	info := cli.OrderInfo(order)
+	info := order.OrderInfo()
 	obj.Subject = info.Subject
 	obj.OutTradeNo = info.OutTradeNo
 	obj.TotalAmount = fmt.Sprintf("%.2f", float64(info.TotalFee)/100)
@@ -76,11 +76,13 @@ func (cli *AliPayClient) WapPayment(ctx *Context) (MapResult, error) {
 	}, nil
 }
 
-type AliPayClientOption func(*AliPayClient)
+type ClientOption func(*Client)
 
-func NewAliPayClient(opts ...AliPayClientOption) (*AliPayClient, error) {
+func NewClient(appId, partnerId string, opts ...ClientOption) (*Client, error) {
 	var err error
-	cli := &AliPayClient{}
+	cli := &Client{}
+	cli.appId = appId
+	cli.partnerId = partnerId
 
 	for _, opt := range opts {
 		opt(cli)
@@ -91,7 +93,7 @@ func NewAliPayClient(opts ...AliPayClientOption) (*AliPayClient, error) {
 		return nil, err
 	}
 
-	if cli.Mode == AliPay_CertMode {
+	if cli.Mode == CertMode {
 		cli.client.LoadAppPublicCertFromFile(cli.appCertSnFile)
 		cli.client.LoadAliPayRootCertFromFile(cli.rootCertSnFile)
 		cli.client.LoadAliPayPublicCertFromFile(cli.aliPublicCertSnFile)
@@ -102,65 +104,52 @@ func NewAliPayClient(opts ...AliPayClientOption) (*AliPayClient, error) {
 	return cli, err
 }
 
-func AliPayConfig(appId, partnerId string) AliPayClientOption {
-	return func(cli *AliPayClient) {
-		cli.appId = appId
-		cli.partnerId = partnerId
+func Mode(mode string) ClientOption {
+	return func(cli *Client) {
+		cli.Mode = mode
 	}
 }
 
-func AliPayPrivateKey(privateKey string) AliPayClientOption {
-	return func(cli *AliPayClient) {
+func Prod(isProd bool) ClientOption {
+	return func(cli *Client) {
+		cli.IsProd = isProd
+	}
+}
+
+func PrivateKey(privateKey string) ClientOption {
+	return func(cli *Client) {
 		cli.privateKey = privateKey
 	}
 }
 
-func AliPayAliPublicKey(aliPublicKey string) AliPayClientOption {
-	return func(cli *AliPayClient) {
+func AliPublicKey(aliPublicKey string) ClientOption {
+	return func(cli *Client) {
 		cli.aliPublicKey = aliPublicKey
 	}
 }
 
-func AliPayCertFile(appCertSn, rootCertSn, aliPublicCertSn string) AliPayClientOption {
-	return func(cli *AliPayClient) {
+func CertFiles(appCertSn, rootCertSn, aliPublicCertSn string) ClientOption {
+	return func(cli *Client) {
 		cli.appCertSnFile = appCertSn
 		cli.rootCertSnFile = rootCertSn
 		cli.aliPublicCertSnFile = aliPublicCertSn
 	}
 }
 
-func AliPayMode(mode string) AliPayClientOption {
-	return func(cli *AliPayClient) {
-		cli.Mode = mode
-	}
-}
-
-func AliPayEnv(isProd bool) AliPayClientOption {
-	return func(cli *AliPayClient) {
-		cli.IsProd = isProd
-	}
-}
-
-func AliPayOrderSvc(svc UniPayOrderService) AliPayClientOption {
-	return func(cli *AliPayClient) {
-		cli.OrderSvc = svc
-	}
-}
-
-func AliPayNotifyURL(uri string) AliPayClientOption {
-	return func(cli *AliPayClient) {
+func NotifyURL(uri string) ClientOption {
+	return func(cli *Client) {
 		cli.NotifyURL = uri
 	}
 }
 
-func AliPayReturnURL(uri string) AliPayClientOption {
-	return func(cli *AliPayClient) {
+func ReturnURL(uri string) ClientOption {
+	return func(cli *Client) {
 		cli.ReturnURL = uri
 	}
 }
 
-func AliPayGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo) AliPayClientOption {
-	return func(cli *AliPayClient) {
-		cli.OrderInfo = f
+func WithOrderService(svc unipay.OrderService) ClientOption {
+	return func(cli *Client) {
+		cli.OrderService = svc
 	}
 }

@@ -1,4 +1,4 @@
-package unipay
+package appunipay
 
 // appstore server notify v2
 type AppstoreServerNotifyV2 struct {

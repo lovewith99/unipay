@@ -1,25 +1,25 @@
-package unipay
+package wxunipay
 
 import (
 	"errors"
 
+	"github.com/lovewith99/unipay"
 	wxpayv2 "github.com/lovewith99/wxpay/v2"
 )
 
-type WxPayClient struct {
-	WxPayClientConfig
+type Client struct {
+	Config
 
-	client    *wxpayv2.Client
-	OrderSvc  UniPayOrderService
-	OrderInfo func(UniPayOrder) *UniPayOrderInfo
+	client       *wxpayv2.Client
+	OrderService unipay.OrderService
 }
 
-func (cli *WxPayClient) Client() *wxpayv2.Client {
+func (cli *Client) Client() *wxpayv2.Client {
 	return cli.client
 }
 
-func (cli *WxPayClient) Payment(ctx *Context) (MapResult, error) {
-	svc := cli.OrderSvc
+func (cli *Client) Payment(ctx *unipay.Context) (unipay.MapResult, error) {
+	svc := cli.OrderService
 
 	order, err := svc.PostOrder(ctx)
 	if err != nil {
@@ -37,7 +37,7 @@ func (cli *WxPayClient) Payment(ctx *Context) (MapResult, error) {
 		obj.SignType = wxpayv2.MD5
 	}
 
-	info := cli.OrderInfo(order)
+	info := order.OrderInfo()
 	obj.Body = info.Subject
 	obj.OutTradeNo = info.OutTradeNo
 	obj.TotalFee = info.TotalFee
@@ -56,11 +56,11 @@ func (cli *WxPayClient) Payment(ctx *Context) (MapResult, error) {
 	return data, nil
 }
 
-type WxPayClientOption func(*WxPayClient)
+type ClientOption func(*Client)
 
-func NewWxPayClient(opts ...WxPayClientOption) (*WxPayClient, error) {
+func NewWxPayClient(appId, mchdId, key string, opts ...ClientOption) (*Client, error) {
 	var err error
-	cli := &WxPayClient{}
+	cli := &Client{}
 
 	for _, opt := range opts {
 		opt(cli)
@@ -81,35 +81,29 @@ func NewWxPayClient(opts ...WxPayClientOption) (*WxPayClient, error) {
 	return cli, err
 }
 
-func WxPayConfig(appId, mchId, key string) WxPayClientOption {
-	return func(cli *WxPayClient) {
-		cli.appId = appId
-		cli.mchId = mchId
-		cli.key = key
+// func BaseConfig(appId, mchId, key string) ClientOption {
+// 	return func(cli *Client) {
+// 		cli.appId = appId
+// 		cli.mchId = mchId
+// 		cli.key = key
+// 	}
+// }
+
+func NotifyURL(uri string) ClientOption {
+	return func(cli *Client) {
+		cli.NotifyURL = uri
 	}
 }
 
-func WxPayTLS(certPem, keyPem string) WxPayClientOption {
-	return func(cli *WxPayClient) {
+func TLSCertFiles(certPem, keyPem string) ClientOption {
+	return func(cli *Client) {
 		cli.certPem = certPem
 		cli.keyPem = keyPem
 	}
 }
 
-func WxPayNotifyURL(uri string) WxPayClientOption {
-	return func(cli *WxPayClient) {
-		cli.NotifyURL = uri
-	}
-}
-
-func WxPayOrderSvc(svc UniPayOrderService) WxPayClientOption {
-	return func(cli *WxPayClient) {
-		cli.OrderSvc = svc
-	}
-}
-
-func WxPayGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo) WxPayClientOption {
-	return func(cli *WxPayClient) {
-		cli.OrderInfo = f
+func WithOrderService(svc unipay.OrderService) ClientOption {
+	return func(cli *Client) {
+		cli.OrderService = svc
 	}
 }

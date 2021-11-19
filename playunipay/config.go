@@ -1,6 +1,6 @@
-package unipay
+package playunipay
 
-type PlayStoreClientConfig struct {
+type Config struct {
 	PackageName string
 
 	// jsonKey   []byte
