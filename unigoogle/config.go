@@ -1,4 +1,4 @@
-package playunipay
+package unigoogle
 
 type Config struct {
 	PackageName string

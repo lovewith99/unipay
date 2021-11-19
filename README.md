@@ -67,26 +67,31 @@ type AttachService interface {
 
 ### 初始化
 ```golang
-applepay = unipay.NewAppStoreClient(
+client := uniapple.NewClient(
 	"password",
 	"bundleID",
-	unipay.AppStoreOrderLocker(Interface<OrderLocker>),
-	unipay.AppStoreAttachSvc(Interface<OrderAttachService>),
-	unipay.AppStoreOrderSvc(Interface<IapOrderService>),
-)
+	uniapple.WithLocker(OrderLocker{}),
+	uniapple.WithOrderService(IapOrderService{}),
+	uniapple.WithAttachService(OrderAttachService{}),
+) 
 ```
 
 
 ## play store
 ### 初始化
 ```golang
-client, err := unipay.NewPlayStoreClient(
-	unipay.PlayStorePackageName("packagename"),
-	unipay.PlayStoreOrderLocker(Interface<>),
-	unipay.PlayStoreAttachSvc(Interface<>),
-	unipay.PlayStoreOrderSvc(Interface<>)
-	unipay.PlayStorePublicKey("publickey"), // todo
-	unipay.PlayStoreAndroidPublisherSvc(Interface<>),
+client, _ := unigoogle.NewClient(
+	unigoogle.PackageName("xxxxxx"),
+	unigoogle.WithLocker(OrderLocker{}),
+	unigoogle.WithOrderService(IapOrderService{}),
+	unigoogle.WithAttachService(OrderAttachService{}),
+	unigoogle.PublicKey("xxxxxxx"),
+	unigoogle.WithPublisherService(&unigoogle.RemoteAndroidPublisherService{
+		Endpoint: "http://proxy.leminet.cn",
+		Apis:     unigoogle.RemoteAndroidPublisherApis,
+		Client:   &http.Client{Timeout: 10 * time.Second},
+	}),
+	// unipay.NewAndroidPublisherService
 )
 ```
 
@@ -94,13 +99,12 @@ client, err := unipay.NewPlayStoreClient(
 ## paypal v2
 ### 初始化
 ```golang
-client, _ := unipay.NewPayPalClient(
-		"clientId",
-		"secret",
-		true, // 生产环境: true, 沙盒环境: false
-		unipay.PayPalOrderSvc(Interface<UniPayOrderService>),
-		unipay.PayPalNotifyURL("ReturnURL", "CancelURL"),
-		unipay.PayPalGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo),
+client, _ := unipaypal.NewClient(
+	true, // 生产环境: true, 沙盒环境: false
+	"clientId",
+	"secret",
+	unipaypal.WithOrderService(OrderService{}),
+	unipaypal.NotifyURL("xxx", "xxx"),
 )
 ```
 
@@ -108,26 +112,21 @@ client, _ := unipay.NewPayPalClient(
 ### 初始化
 ```golang
 // 普通公钥模式: KeyMode
-alipay, _ = unipay.NewAliPayClient(
-		unipay.AliPayEnv(true), // 生产环境:true, 沙盒环境: false
-		unipay.AliPayConfig("appId", "partnerId"),
-		unipay.AliPayPrivateKey(""),
-		unipay.AliPayAliPublicKey(""),
-		unipay.AliPayNotifyURL("NotifyURL"),
-		unipay.AliPayReturnURL("ReturnURL"),
-		unipay.AliPayOrderSvc(Interface<UniPayOrderService>),
-		unipay.AliPayGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo),
+client, _ := unialipay.NewClient(
+	<true|false>, "appId", "partnerId", 
+	unialipay.PrivateKey("xxx"),
+	unialipay.AliPublicKey("xxx"),
+	unialipay.NotifyURL("notifyUrl", "returnUrl")
+	unialipay.WithOrderService(Interface<UniPayOrderService>),
 )
 // 证书模式: CertMode 
-alipay, _ = unipay.NewAliPayClient(
-		unipay.AliPayEnv(true), // 生产环境:true, 沙盒环境: false
-		unipay.AliPayMode("CertMode"),
-		unipay.AliPayConfig("appId", "partnerId"),
-		unipay.AliPayCertFile("appCertSn", "rootCertSn", "aliPublicCertSn"),
-		unipay.AliPayNotifyURL("NotifyURL"),
-		unipay.AliPayReturnURL("ReturnURL"),
-		unipay.AliPayOrderSvc(Interface<UniPayOrderService>),
-		unipay.AliPayGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo),
+client, _ := unialipay.NewClient(
+	<true|false>, "appId", "partnerId", 
+	unialipay.Mode("CertMode"),
+	unialipay.PrivateKey("xxx"),
+	unialipay.CertFiles("xxx", "xxx", "xxx"),
+	unialipay.NotifyURL("notifyUrl", "returnUrl")
+	unialipay.WithOrderService(Interface<UniPayOrderService>),
 )
 ```
 
@@ -137,10 +136,9 @@ alipay, _ = unipay.NewAliPayClient(
 
 ### 初始化
 ```golang
-client, _ := unipay.NewWxPayClient(
-	unipay.WxPayOrderSvc(Interface<UniPayOrderService>),
-	unipay.WxPayNotifyURL("NotifyURL"),
-	unipay.WxPayConfig("appId", "mchId", "key"),
-	unipay.WxPayGetOrderInfoFunc(f func(UniPayOrder) *UniPayOrderInfo),
+client, _ := uniwxpay.NewClient(
+	"appId", "mchId", "key",
+	uniwxpay.WithOrderService(OrderService{}),
+	uniwxpay.NotifyURL("xxxxx"),
 )
 ```

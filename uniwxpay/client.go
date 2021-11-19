@@ -1,4 +1,4 @@
-package wxunipay
+package uniwxpay
 
 import (
 	"errors"
@@ -58,9 +58,12 @@ func (cli *Client) Payment(ctx *unipay.Context) (unipay.MapResult, error) {
 
 type ClientOption func(*Client)
 
-func NewWxPayClient(appId, mchdId, key string, opts ...ClientOption) (*Client, error) {
+func NewClient(appId, mchdId, key string, opts ...ClientOption) (*Client, error) {
 	var err error
 	cli := &Client{}
+	cli.appId = appId
+	cli.mchId = mchdId
+	cli.key = key
 
 	for _, opt := range opts {
 		opt(cli)

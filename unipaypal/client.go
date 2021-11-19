@@ -1,4 +1,4 @@
-package ppunipay
+package unipaypal
 
 import (
 	"context"
@@ -30,9 +30,10 @@ func WithOrderService(svc unipay.OrderService) ClientOption {
 	}
 }
 
-func NewPayPalClient(clientId, secret string, opts ...ClientOption) (*Client, error) {
+func NewClient(prod bool, clientId, secret string, opts ...ClientOption) (*Client, error) {
 	var err error
 	client := &Client{}
+	client.IsProd = prod
 	client.clientId = clientId
 	client.secret = secret
 

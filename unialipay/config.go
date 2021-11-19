@@ -1,4 +1,4 @@
-package alipay
+package unialipay
 
 const (
 	KeyMode  = "KeyMode"  // 普通公钥模式

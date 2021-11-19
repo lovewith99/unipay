@@ -1,4 +1,4 @@
-package playunipay
+package unigoogle
 
 import (
 	"context"
@@ -21,6 +21,19 @@ type Client struct {
 	OrderService    unipay.IapOrderService
 	AttachService   unipay.AttachService
 	PubliserService PublisherService
+}
+
+func NewClient(opts ...ClientOption) (*Client, error) {
+	var err error
+	client := &Client{}
+	for _, opt := range opts {
+		err = opt(client)
+		if err != nil {
+			break
+		}
+	}
+
+	return client, err
 }
 
 func PackageName(packageName string) ClientOption {
@@ -362,17 +375,4 @@ func (cli *Client) SubscriptionNotify(ctx *unipay.Context, noti *SubscriptionNot
 	}
 
 	return err
-}
-
-func NewPlayStoreClient(opts ...ClientOption) (*Client, error) {
-	var err error
-	client := &Client{}
-	for _, opt := range opts {
-		err = opt(client)
-		if err != nil {
-			break
-		}
-	}
-
-	return client, err
 }

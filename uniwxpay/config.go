@@ -1,4 +1,4 @@
-package wxunipay
+package uniwxpay
 
 type Config struct {
 	appId    string

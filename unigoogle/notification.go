@@ -1,4 +1,4 @@
-package playunipay
+package unigoogle
 
 import (
 	"encoding/base64"

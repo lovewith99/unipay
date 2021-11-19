@@ -1,4 +1,4 @@
-package alipay
+package unialipay
 
 import (
 	"fmt"
@@ -78,9 +78,10 @@ func (cli *Client) WapPayment(ctx *unipay.Context) (unipay.MapResult, error) {
 
 type ClientOption func(*Client)
 
-func NewClient(appId, partnerId string, opts ...ClientOption) (*Client, error) {
+func NewClient(prod bool, appId, partnerId string, opts ...ClientOption) (*Client, error) {
 	var err error
 	cli := &Client{}
+	cli.IsProd = prod
 	cli.appId = appId
 	cli.partnerId = partnerId
 
@@ -136,15 +137,10 @@ func CertFiles(appCertSn, rootCertSn, aliPublicCertSn string) ClientOption {
 	}
 }
 
-func NotifyURL(uri string) ClientOption {
+func NotifyURL(notifyUrl, returnUrl string) ClientOption {
 	return func(cli *Client) {
-		cli.NotifyURL = uri
-	}
-}
-
-func ReturnURL(uri string) ClientOption {
-	return func(cli *Client) {
-		cli.ReturnURL = uri
+		cli.NotifyURL = notifyUrl
+		cli.ReturnURL = returnUrl
 	}
 }
 

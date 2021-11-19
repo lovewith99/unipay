@@ -1,4 +1,4 @@
-package ppunipay
+package unipaypal
 
 type Config struct {
 	IsProd   bool
