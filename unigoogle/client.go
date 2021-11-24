@@ -33,6 +33,14 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		}
 	}
 
+	if client.Locker == nil {
+		client.Locker = unipay.LockerImpl{}
+	}
+
+	if client.AttachService == nil {
+		client.AttachService = unipay.AttachServiceImpl{}
+	}
+
 	return client, err
 }
 
