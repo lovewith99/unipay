@@ -170,7 +170,7 @@ func (cli *Client) Revoke(ctx *unipay.Context, inapp *iap.PurchaseData) error {
 	cli.SetOriOrderId(inapp)
 
 	if ok, _ := cli.LockOrder(inapp.OrderId); !ok {
-		return errors.New("concurrenty deal: " + inapp.OrderId)
+		return errors.New("concurrency deal: " + inapp.OrderId)
 	}
 	defer cli.UnLockOrder(inapp.OrderId)
 
@@ -191,7 +191,7 @@ func (cli *Client) Invoke(ctx *unipay.Context, inapp *iap.PurchaseData) error {
 	cli.SetOriOrderId(inapp)
 
 	if ok, _ := cli.LockOrder(inapp.OrderId); !ok {
-		return errors.New("concurrenty deal: " + inapp.OrderId)
+		return errors.New("concurrency deal: " + inapp.OrderId)
 	}
 	defer cli.UnLockOrder(inapp.OrderId)
 

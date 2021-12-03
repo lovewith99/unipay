@@ -185,7 +185,7 @@ func (cli *Client) Invoke(ctx *unipay.Context, inapp *appstore.InApp) error {
 
 	if ok, _ := cli.LockInapp(inapp.TransactionID); !ok {
 		// 并发处理同一笔订单, 未获得锁
-		return errors.New("concurrenty deal: " + inapp.TransactionID)
+		return errors.New("concurrency deal: " + inapp.TransactionID)
 	}
 	defer cli.UnLockInapp(inapp.TransactionID)
 
@@ -218,7 +218,7 @@ func (cli *Client) Revoke(ctx *unipay.Context, inapp *appstore.InApp) error {
 	ctx.ProductID = inapp.ProductID
 	if ok, _ := cli.LockInapp(inapp.TransactionID); !ok {
 		// 并发处理同一笔订单, 未获得锁
-		return errors.New("concurrenty deal: " + inapp.TransactionID)
+		return errors.New("concurrency deal: " + inapp.TransactionID)
 	}
 	defer cli.UnLockInapp(inapp.TransactionID)
 
