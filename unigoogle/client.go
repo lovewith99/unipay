@@ -164,7 +164,8 @@ func (cli *Client) SetSubscriptionPurchase(inapp *iap.PurchaseData) error {
 
 func (cli *Client) Revoke(ctx *unipay.Context, inapp *iap.PurchaseData) error {
 	if inapp == nil {
-		return errors.New("Transaction not found")
+		// return errors.New("Transaction not found")
+		return unipay.OrderNotFoundError
 	}
 	ctx.ProductID = inapp.ProductId
 	cli.SetOriOrderId(inapp)
@@ -185,7 +186,8 @@ func (cli *Client) Revoke(ctx *unipay.Context, inapp *iap.PurchaseData) error {
 
 func (cli *Client) Invoke(ctx *unipay.Context, inapp *iap.PurchaseData) error {
 	if inapp == nil {
-		return errors.New("Transaction not found")
+		// return errors.New("Transaction not found")
+		return unipay.OrderNotFoundError
 	}
 	ctx.ProductID = inapp.ProductId
 	cli.SetOriOrderId(inapp)

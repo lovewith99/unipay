@@ -18,6 +18,8 @@ type Request struct {
 	PlayStoreIAPRequest
 
 	TransactionId string `json:"transaction_id"`
+	// original_transaction_id 仅在恢复购买时该字段有效
+	OriginalTransactionID string `json:"original_transaction_id"`
 
 	// public
 	PayWay    uint8  `json:"pay_way,string"` // 支付方式

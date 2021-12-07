@@ -179,7 +179,8 @@ func (cli *Client) Payment(ctx *unipay.Context) error {
 // InvokeHandler 处理小票交易
 func (cli *Client) Invoke(ctx *unipay.Context, inapp *appstore.InApp) error {
 	if inapp == nil {
-		return errors.New("transaction not found")
+		// return errors.New("transaction not found")
+		return unipay.OrderNotFoundError
 	}
 	ctx.ProductID = inapp.ProductID
 
@@ -213,7 +214,8 @@ func (cli *Client) Invoke(ctx *unipay.Context, inapp *appstore.InApp) error {
 
 func (cli *Client) Revoke(ctx *unipay.Context, inapp *appstore.InApp) error {
 	if inapp == nil {
-		return errors.New("Transaction not found")
+		// return errors.New("Transaction not found")
+		return unipay.OrderNotFoundError
 	}
 	ctx.ProductID = inapp.ProductID
 	if ok, _ := cli.LockInapp(inapp.TransactionID); !ok {
