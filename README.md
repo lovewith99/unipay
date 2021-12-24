@@ -37,7 +37,7 @@ type OrderService interface {
 // 这时候就需要实现IapOrderService中的CheckSubUser方法
 type IapOrderService interface {
 	UniPayOrderService
-	CheckSubUser(ctx *Context, oriSubId, subId string) bool
+	CheckSubUser(ctx *Context, oriSubId, subId string) error
 }
 ```
 
