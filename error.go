@@ -8,5 +8,6 @@ var (
 )
 
 func IsOrderNotFondError(err error) bool {
-	return err == OrderNotFoundError
+	// return err == OrderNotFoundError
+	return errors.Is(err, OrderNotFoundError)
 }

@@ -193,16 +193,19 @@ func (cli *Client) Invoke(ctx *unipay.Context, inapp *appstore.InApp) error {
 	svc := cli.OrderService
 	order, err := svc.GetOrderByTradeNo(inapp.TransactionID, unipay.PayWay_AppStore)
 	if err != nil {
-		err = cli.CheckSubUser(ctx, inapp)
-		if err == nil {
-			ctx.InApp = inapp
-			order, err = svc.PostOrder(ctx)
+		if err := cli.CheckSubUser(ctx, inapp); err != nil {
+			return err
+		}
+		ctx.InApp = inapp
+		order, err = svc.PostOrder(ctx)
+		if err != nil {
+			return err
 		}
 	}
 
-	if err != nil {
-		return err
-	}
+	// if err != nil {
+	// 	return err
+	// }
 
 	// 订单已处理，直接返回
 	if order.Payed() {
@@ -242,20 +245,17 @@ func (cli *Client) CheckSubUser(ctx *unipay.Context, inapp *appstore.InApp) erro
 		return nil
 	}
 
-	svc := cli.OrderService
-	matched := svc.CheckSubUser(ctx, inapp.OriginalTransactionID, inapp.TransactionID)
-	if !matched {
-		return errors.New("subscribe user mismatch")
-	}
-	return nil
+	// svc := cli.OrderService
+	err := cli.OrderService.CheckSubUser(ctx, inapp.OriginalTransactionID, inapp.TransactionID)
+	return err
 }
 
-func (cli *Client) AppStoreNotify(ctx *unipay.Context, noti *appstore.SubscriptionNotification, filters ...func(*appstore.InApp) bool) error {
+func (cli *Client) AppStoreNotify(ctx *unipay.Context, noti *appstore.SubscriptionNotification, filters ...func(*appstore.InApp) error) error {
 	inapp := GetLatestInapp(noti.UnifiedReceipt.LatestReceiptInfo)
 
 	for _, filter := range filters {
-		if ok := filter(inapp); !ok {
-			return nil
+		if err := filter(inapp); err != nil {
+			return err
 		}
 	}
 

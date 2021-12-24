@@ -30,7 +30,7 @@ type OrderService interface {
 
 type IapOrderService interface {
 	OrderService
-	CheckSubUser(ctx *Context, oriSubId, subId string) bool
+	CheckSubUser(ctx *Context, oriSubId, subId string) error
 }
 
 // Locker 订单锁, 防止并发处理同一笔订单导致而导致订单重复处理
