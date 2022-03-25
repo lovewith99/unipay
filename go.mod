@@ -3,7 +3,7 @@ module github.com/lovewith99/unipay
 go 1.16
 
 require (
-	github.com/awa/go-iap v1.3.10
+	github.com/awa/go-iap v1.3.16
 	github.com/lovewith99/wxpay/v2 v2.0.1
 	github.com/plutov/paypal/v4 v4.4.1
 	github.com/smartwalle/alipay/v3 v3.1.6
